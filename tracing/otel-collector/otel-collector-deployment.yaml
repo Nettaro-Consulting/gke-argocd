@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: tracing
+  labels:
+    app: otel-collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+    spec:
+      serviceAccountName: otel-collector
+      containers:
+      - name: otel-collector
+        image: otel/opentelemetry-collector-contrib:0.82.0
+        command:
+        - "/otelcol-contrib"
+        - "--config=/conf/otel-collector-config.yaml"
+        ports:
+        - containerPort: 1777   # pprof
+        - containerPort: 4317   # OTLP gRPC
+        - containerPort: 4318   # OTLP HTTP
+        - containerPort: 6831   # Jaeger thrift compact UDP
+          protocol: UDP
+        - containerPort: 6832   # Jaeger thrift binary UDP
+          protocol: UDP
+        - containerPort: 9411   # Zipkin
+        - containerPort: 14250  # Jaeger gRPC
+        - containerPort: 14268  # Jaeger thrift http
+        - containerPort: 55679  # zpages
+        - containerPort: 8888   # Prometheus metrics
+        - containerPort: 8889   # Prometheus exporter
+        resources:
+          requests:
+            cpu: 100m
+            memory: 200Mi
+          limits:
+            cpu: 300m
+            memory: 512Mi
+        volumeMounts:
+        - name: otel-collector-config-vol
+          mountPath: /conf
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 13133 # health_check extension default port
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 13133 # health_check extension default port
+      volumes:
+      - name: otel-collector-config-vol
+        configMap:
+          name: otel-collector-config
+          items:
+            - key: otel-collector-config.yaml
+              path: otel-collector-config.yaml
